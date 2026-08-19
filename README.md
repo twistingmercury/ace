@@ -1,12 +1,12 @@
 # Mnemonic
 
-[![Mnemonic CI](https://github.com/twistingmercury/mnemonic/actions/workflows/mnemonic-ci.yaml/badge.svg)](https://github.com/twistingmercury/mnemonic/actions/workflows/mnemonic-ci.yaml)
+[![Mnemonic MCP CI](https://github.com/twistingmercury/mnemonic-mcp/actions/workflows/mnemonic-ci.yaml/badge.svg)](https://github.com/twistingmercury/mnemonic-mcp/actions/workflows/mnemonic-ci.yaml)
 
 > **Maturity Level**: Emerging — MCP search server functional, Admin REST API in a separate service (`mnemonic-api`)
-> **Version**: v0.1.7
+> **Version**: v0.3.1
 >
 > - **Emerging**: Prototype, not production-ready, expect breaking changes
-> - **Basic**: Production-ready but actively evolving, expect minor version changes>
+> - **Basic**: Production-ready but actively evolving, expect minor version changes
 > - **Mature**: Stable, battle-tested, changes are rare
 
 ---
@@ -20,6 +20,7 @@
   - [Key Considerations](#key-considerations)
   - [Development Considerations](#development-considerations)
     - [Quick Start](#quick-start)
+    - [Building & running](#building--running)
     - [Testing](#testing)
     - [Versioning](#versioning)
   - [Documentation](#documentation)
@@ -28,7 +29,9 @@
 
 ## Usage
 
-Mnemonic exposes an MCP server for Claude Code (port 8081):
+Mnemonic exposes Streamable HTTP MCP at <http://localhost:8081/mcp>.
+
+Example MCP tool invocation:
 
 ```json
 {
@@ -43,52 +46,80 @@ Pattern data is managed via the companion [mnemonic-api](https://github.com/twis
 
 ## How it works
 
-Mnemonic stores curated engineering patterns in Postgres (with PGVector for embeddings) and Neo4j (for concept relationships). This service exposes MCP search tools over that data and a small operations surface (`/health`, `/metrics`, `/version`). Pattern creation and enrichment workflows are handled outside this repo.
+Mnemonic stores curated engineering patterns in Postgres (with PGVector for
+embeddings) and Neo4j (for concept relationships). This service exposes MCP
+search tools over that data. The companion Admin API publishes enrichment jobs
+to RabbitMQ, and the separate `mnemonic-enricher` service consumes them.
 
 **Local dev stack (Docker Compose):**
 
-| Service        | Image                                       | Role                                                 |
-| -------------- | ------------------------------------------- | ---------------------------------------------------- |
-| `dev_mcp`      | `ghcr.io/twistingmercury/mnemonic`          | MCP search server (port 8081) + operations endpoints |
-| `dev_api`      | `ghcr.io/twistingmercury/mnemonic-api`      | Admin REST API (port 8080)                           |
-| `dev_postgres` | `ghcr.io/twistingmercury/mnemonic-postgres` | Postgres + PGVector                                  |
-| `dev_neo4j`    | `ghcr.io/twistingmercury/mnemonic-neo4j`    | Neo4j + APOC                                         |
+| Service        | Image                                       | Host access                                     |
+| -------------- | ------------------------------------------- | ----------------------------------------------- |
+| `dev_mcp`      | `ghcr.io/twistingmercury/mnemonic`          | MCP `:8081/mcp`; metrics `:9090/metrics`        |
+| `dev_api`      | `ghcr.io/twistingmercury/mnemonic-api`      | Admin REST API on `:8080`                       |
+| `dev_postgres` | `ghcr.io/twistingmercury/mnemonic-postgres` | Postgres + PGVector on `:5433`                  |
+| `dev_neo4j`    | `ghcr.io/twistingmercury/mnemonic-neo4j`    | Neo4j HTTP on `:7475`; Bolt on `:7688`          |
+| `dev_rabbitmq` | `rabbitmq:4-management-alpine`              | AMQP on `:5673`; management console on `:15673` |
 
-Both database images are pre-configured with the required schema — no migration step needed.
+Both database images are pre-configured with the required schema, so no
+migration step is needed. From the host, MCP is available at
+<http://localhost:8081/mcp> and metrics at <http://localhost:9090/metrics>.
+Within the Compose network, the MCP service exposes operations at
+`http://dev_mcp:8080/health` and `http://dev_mcp:8080/version`. Its operations
+port is not published to the host; host port 8080 routes to `dev_api`. The stack
+does not include `mnemonic-enricher`, so queued content will not become
+searchable unless that service is run separately.
 
 ## Key Considerations
 
-- **MVP scope**: Local deployment via Docker Compose, single-user trusted environment, no authentication
-- **This repo**: MCP search server + operations endpoints only — Admin REST API lives in `mnemonic-api`
-- **Enrichment**: Managed outside this service; this repo reads enriched/searchable data
-- **Post-MVP**: Event-driven enrichment (queue-based), multi-user auth, production deployment
+- **This repo**: Read-only MCP search and operational endpoints; administration
+  lives in `mnemonic-api`
+- **Current enrichment**: The Admin API publishes jobs to RabbitMQ for the
+  separate `mnemonic-enricher` worker; this service reads the resulting data
+- **MVP security**: Local, trusted, single-user deployment without authentication
+- **Post-MVP**: Authentication, authorization, and production deployment
 
 ## Development Considerations
 
 ### Quick Start
 
-Requires Go 1.25+, Docker 27+, Docker Compose 2.32+.
+Requires Go 1.26.6+, Docker 27+, and Docker Compose 2.32+.
 
 ```bash
-git clone https://github.com/twistingmercury/mnemonic.git
-cd mnemonic
-make mnemonic       # build image + run full E2E test suite
-make start          # start local dev stack
+git clone https://github.com/twistingmercury/mnemonic-mcp.git
+cd mnemonic-mcp
+make tests-unit
 ```
+
+### Building & running
+
+`make build` builds `ghcr.io/twistingmercury/mnemonic` with the current version
+and `latest` tags, then runs the end-to-end suite. The suite also requires the
+`ghcr.io/twistingmercury/mnemonic-api:latest-dev` image to be available to
+Docker.
+
+The local Compose stack is a separate workflow. Before `make start`, provide
+`MNEMONIC_OPENAI_API_KEY` and ensure these development images already exist
+locally because their services use `pull_policy: never`:
+
+- `ghcr.io/twistingmercury/mnemonic:latest-dev`
+- `ghcr.io/twistingmercury/mnemonic-api:latest-dev`
+
+```bash
+export MNEMONIC_OPENAI_API_KEY="your-api-key"
+make start
+```
+
+`make start` does not build or retag images.
 
 ### Testing
 
 ```bash
 # Unit tests
-cd src
-go test ./...
+make tests-unit
 
-# Integration tests (requires Docker)
-cd src/internal/repository/tests
-./run-pattern-integration-tests.sh
-
-# Full build + E2E tests
-make mnemonic
+# Image build and end-to-end tests
+make build
 ```
 
 ### Versioning
@@ -107,21 +138,8 @@ See [CHANGELOG.md](CHANGELOG.md) for development progress.
 
 ### Architecture
 
-- [Architectural Decisions](docs/architecture/00-architectural-decisions.md)
-- [Security Architecture](docs/architecture/01-security-architecture.md)
-- [System Architecture](docs/architecture/02-system-architecture.md)
-- [Communication Patterns](docs/architecture/03-communication-patterns.md)
-- [Data Architecture](docs/architecture/04-data-architecture.md)
-- [Database Integration Flow](docs/architecture/05-database-integration-flow.md)
-- [Deployment Architecture](docs/architecture/06-deployment-architecture.md)
-- [Observability Architecture](docs/architecture/07-observability-architecture.md)
-- [MCP Tools](docs/architecture/08-mcp-tools.md)
+Architecture and related decisions can be found here: [Mnemonic Docs](https://github.com/twistingmercury/mnemonic-docs/blob/develop/docs/architecture/system/README.md)
 
 ### Design
 
-- [Pattern Processing](docs/design/pattern-processing.md) — search data pipeline
-- [MCP Server](docs/design/mcp-server.md) — MCP protocol integration
-- [Service Layer](docs/design/service-layer.md) — service package design
-- [Observability](docs/design/observability-implementation.md) — metrics, tracing, logging
-- [Configuration](docs/design/configuration.md) — server configuration reference
-- [Data Storage](docs/design/data-storage.md) — storage design
+Design documents are here: [Design Documents](https://github.com/twistingmercury/mnemonic-docs/blob/develop/docs/design/README.md)
