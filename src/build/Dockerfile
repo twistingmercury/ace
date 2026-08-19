@@ -2,7 +2,7 @@
 # Stage 1: Run linters, formatters, security scanners, 
 # unit tests, then build binary
 #------------------------------------------------------------
-FROM ghcr.io/twistingmercury/golang-tooling:alpine AS build
+FROM ghcr.io/twistingmercury/golang-tooling:latest AS build
 
 ENV CGO_ENABLED=0 \
     GOARCH=amd64 \
@@ -43,9 +43,9 @@ ARG BUILD_DATE=unknown
 ARG BUILD_COMMIT=unknown
 
 LABEL org.opencontainers.image.title="mnemonic" \
-    org.opencontainers.image.description="Backend server providing routing and pattern retrieval via REST API for ACE CLI" \
+    org.opencontainers.image.description="Mnemonic MCP service for semantic pattern search and retrieval" \
     org.opencontainers.image.source="https://github.com/twistingmercury/mnemonic-mcp/tree/develop/src" \
-    org.opencontainers.image.licenses="MIT" \
+    org.opencontainers.image.licenses="Apache-2.0" \
     org.opencontainers.image.authors="Jeremy K. Johnson" \
     org.opencontainers.image.created="${BUILD_DATE}" \
     org.opencontainers.image.revision="${BUILD_COMMIT}" \
@@ -54,6 +54,6 @@ LABEL org.opencontainers.image.title="mnemonic" \
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=build /out/mnemonic /mnemonic
 
-EXPOSE 8080
+EXPOSE 8080 8081 9090
 
 ENTRYPOINT ["/mnemonic"]
