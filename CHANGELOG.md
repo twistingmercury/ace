@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] - 2026-09-09
+
+### Changed
+
+- Updated Go modules and Docker build images to Go 1.27.1 and refreshed dependencies.
+- Disabled test-file analysis in golangci-lint.
+
+### Fixed
+
+- Moved test-only constructors into `export_test.go` files to avoid unused-function
+  lint errors when test analysis is disabled.
+- Kept pgx at v5.10.0 for compatibility with pgxmock v4.9.0, restoring unit-test
+  compilation during `make build`.
+
 ## [0.3.1]
 
 ### Changed

@@ -3,7 +3,7 @@
 [![Mnemonic MCP CI](https://github.com/twistingmercury/mnemonic-mcp/actions/workflows/mnemonic-ci.yaml/badge.svg)](https://github.com/twistingmercury/mnemonic-mcp/actions/workflows/mnemonic-ci.yaml)
 
 > **Maturity Level**: Emerging — MCP search server functional, Admin REST API in a separate service (`mnemonic-api`)
-> **Version**: v0.3.1
+> **Version**: v0.3.2
 >
 > - **Emerging**: Prototype, not production-ready, expect breaking changes
 > - **Basic**: Production-ready but actively evolving, expect minor version changes
@@ -83,7 +83,7 @@ searchable unless that service is run separately.
 
 ### Quick Start
 
-Requires Go 1.26.6+, Docker 27+, and Docker Compose 2.32+.
+Requires Go 1.27.1+, Docker 27+, and Docker Compose 2.32+.
 
 ```bash
 git clone https://github.com/twistingmercury/mnemonic-mcp.git
@@ -113,6 +113,10 @@ make start
 `make start` does not build or retag images.
 
 ### Testing
+
+golangci-lint excludes test files; the unit-test suite still compiles and runs
+them. Keep `pgx/v5` at v5.10.0 while using `pgxmock/v4` v4.9.0: the mock does
+not implement the `Rows.TypeMap()` method required by pgx v5.11.0.
 
 ```bash
 # Unit tests
