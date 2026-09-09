@@ -67,14 +67,6 @@ func NewExtractionService(cfg config.OpenAIConfig) ExtractionService {
 	}
 }
 
-// newExtractionServiceWithURL creates an ExtractionService pointing at a custom URL.
-// This is used for testing with httptest servers.
-func newExtractionServiceWithURL(cfg config.OpenAIConfig, baseURL string) ExtractionService {
-	svc := NewExtractionService(cfg).(*openaiExtraction)
-	svc.baseURL = baseURL
-	return svc
-}
-
 // chatRequest is the OpenAI chat completions API request body.
 type chatRequest struct {
 	Model    string        `json:"model"`

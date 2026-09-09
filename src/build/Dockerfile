@@ -2,7 +2,7 @@
 # Stage 1: Run linters, formatters, security scanners, 
 # unit tests, then build binary
 #------------------------------------------------------------
-FROM ghcr.io/twistingmercury/golang-tooling:latest AS build
+FROM ghcr.io/twistingmercury/golang-tooling:go1.27.1 AS build
 
 ENV CGO_ENABLED=0 \
     GOARCH=amd64 \
@@ -23,7 +23,7 @@ RUN goimports -w .
 RUN golangci-lint run
 RUN govulncheck ./cmd/... ./internal/...
 RUN gosec -quiet -exclude-dir=tests ./...
-RUN go test -v ./cmd/main/... ./internal/... -coverprofile=coverage.out
+RUN go test -v ./cmd/main/... ./internal/...
 
 ARG LD_FLAGS="-s -w \
     -X 'github.com/twistingmercury/mnemonic/internal/version.version=${BUILD_VER}' \
